@@ -36,7 +36,10 @@ var counterFallbackOK int32 // atomic
 // See https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 var sslKeyLogFile = os.Getenv("SSLKEYLOGFILE")
 
-var debug = envknob.RegisterBool("TS_DEBUG_TLS_DIAL")
+var (
+	debug              = envknob.RegisterBool("TS_DEBUG_TLS_DIAL")
+	insecureSkipVerify = envknob.RegisterBool("TS_DEBUG_TLS_DIAL_INSECURE_SKIP_VERIFY")
+)
 
 // tlsdialWarningPrinted tracks whether we've printed a warning about a given
 // hostname already, to avoid log spam for users with custom DERP servers,
@@ -56,7 +59,7 @@ func Config(host string, base *tls.Config) *tls.Config {
 	conf.ServerName = host
 
 	if n := sslKeyLogFile; n != "" {
-		f, err := os.OpenFile(n, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		f, err := os.OpenFile(n, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -78,6 +81,11 @@ func Config(host string, base *tls.Config) *tls.Config {
 	conf.VerifyConnection = func(cs tls.ConnectionState) error {
 		// Perform some health checks on this certificate before we do
 		// any verification.
+		if insecureSkipVerify() {
+			health.SetTLSConnectionError(cs.ServerName, nil)
+			return nil
+		}
+
 		if certIsSelfSigned(cs.PeerCertificates[0]) {
 			// Self-signed certs are never valid.
 			health.SetTLSConnectionError(cs.ServerName, fmt.Errorf("certificate is self-signed"))
