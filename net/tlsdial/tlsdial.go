@@ -37,7 +37,10 @@ import (
 
 var counterFallbackOK int32 // atomic
 
-var debug = envknob.RegisterBool("TS_DEBUG_TLS_DIAL")
+var (
+	debug              = envknob.RegisterBool("TS_DEBUG_TLS_DIAL")
+	insecureSkipVerify = envknob.RegisterBool("TS_DEBUG_TLS_DIAL_INSECURE_SKIP_VERIFY")
+)
 
 // tlsdialWarningPrinted tracks whether we've printed a warning about a given
 // hostname already, to avoid log spam for users with custom DERP servers,
@@ -121,6 +124,11 @@ func Config(ht *health.Tracker, base *tls.Config) *tls.Config {
 			}
 		}
 		if ht != nil {
+			if insecureSkipVerify() {
+				ht.SetTLSConnectionError(cs.ServerName, nil)
+				return nil
+			}
+
 			defer func() {
 				if retErr != nil && cert != nil {
 					// Is it a MITM SSL certificate from a well-known network appliance manufacturer?
