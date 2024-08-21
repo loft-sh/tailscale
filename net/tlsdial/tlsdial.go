@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -40,6 +41,7 @@ var counterFallbackOK int32 // atomic
 var (
 	debug              = envknob.RegisterBool("TS_DEBUG_TLS_DIAL")
 	insecureSkipVerify = envknob.RegisterBool("TS_DEBUG_TLS_DIAL_INSECURE_SKIP_VERIFY")
+	additionalCA       = envknob.RegisterString("TS_DEBUG_TLS_DIAL_ADDITIONAL_CA_B64")
 )
 
 // tlsdialWarningPrinted tracks whether we've printed a warning about a given
@@ -169,9 +171,29 @@ func Config(ht *health.Tracker, base *tls.Config) *tls.Config {
 		for _, cert := range cs.PeerCertificates[1:] {
 			opts.Intermediates.AddCert(cert)
 		}
+		var usingAdditionalCA bool
+		if ca := additionalCA(); len(ca) > 0 {
+			if caBytes, err := base64.StdEncoding.DecodeString(ca); err != nil {
+				log.Printf("cannot decode %v", err)
+			} else {
+				pool := x509.NewCertPool()
+
+				if ok := pool.AppendCertsFromPEM(caBytes); !ok {
+					log.Print("cannot append certs from PEM")
+				} else {
+					opts.Roots = pool
+					usingAdditionalCA = true
+				}
+			}
+		}
 		_, errSys := cs.PeerCertificates[0].Verify(opts)
 		if debug() {
 			log.Printf("tlsdial(sys %q): %v", dialedHost, errSys)
+		}
+		if usingAdditionalCA {
+			// An explicit additional CA was provided, so trust only it and
+			// do not fall back to the baked-in LetsEncrypt roots.
+			return errSys
 		}
 		if !buildfeatures.HasBakedRoots || (errSys == nil && !debug()) {
 			return errSys
