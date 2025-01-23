@@ -1,13 +1,17 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
+//go:build js || linux
+
 package controlhttp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 
 	"github.com/coder/websocket"
@@ -32,10 +36,16 @@ func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
 	host := d.Hostname
 	// If using a custom control server (on a non-standard port), prefer that.
 	// This mirrors the port selection in newNoiseClient from noise.go.
-	if d.HTTPPort != "" && d.HTTPPort != "80" && d.HTTPSPort == "443" {
+	if d.HTTPSPort == NoPort {
 		wsScheme = "ws"
 		host = net.JoinHostPort(host, d.HTTPPort)
+	} else if d.HTTPPort != "" && d.HTTPPort != "80" && d.HTTPSPort == "443" {
+		wsScheme = "ws"
+		host = net.JoinHostPort(host, d.HTTPPort)
+	} else if d.HTTPSPort != "" && d.HTTPSPort != "443" {
+		host = net.JoinHostPort(host, d.HTTPSPort)
 	}
+
 	wsURL := &url.URL{
 		Scheme: wsScheme,
 		Host:   host,
@@ -48,6 +58,13 @@ func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
 	}
 	wsConn, _, err := websocket.Dial(ctx, wsURL.String(), &websocket.DialOptions{
 		Subprotocols: []string{controlhttpcommon.UpgradeHeaderValue},
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
