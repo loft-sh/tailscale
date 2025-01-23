@@ -1,13 +1,17 @@
 // Copyright (c) Tailscale Inc & contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
+//go:build linux
+
 package controlhttp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 
 	"github.com/coder/websocket"
@@ -18,9 +22,6 @@ import (
 
 // Variant of Dial that tunnels the request over WebSockets, since we cannot do
 // bi-directional communication over an HTTP connection when in JS.
-//
-// TLS verification is handled by the browser's stack on js/wasm, so there is
-// no way to set InsecureSkipVerify from Go code here.
 func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
 	if d.Hostname == "" {
 		return nil, errors.New("required Dialer.Hostname empty")
@@ -57,6 +58,13 @@ func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
 	}
 	wsConn, _, err := websocket.Dial(ctx, wsURL.String(), &websocket.DialOptions{
 		Subprotocols: []string{controlhttpcommon.UpgradeHeaderValue},
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		},
 	})
 	if err != nil {
 		return nil, err

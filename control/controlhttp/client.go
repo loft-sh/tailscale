@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !js
+//go:build !js && !linux
 
 // Package controlhttp implements the Tailscale 2021 control protocol
 // base transport over HTTP.
@@ -393,8 +393,6 @@ var macOSScreenTime = health.Register(&health.Warnable{
 	},
 	ImpactsConnectivity: true,
 })
-
-var HookMakeACEDialer feature.Hook[func(dialer netx.DialFunc, aceHost string, optIP netip.Addr) netx.DialFunc]
 
 // tryURLUpgrade connects to u, and tries to upgrade it to a net.Conn.
 //
