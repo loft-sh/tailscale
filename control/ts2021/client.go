@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"tailscale.com/control/controlhttp"
+	"tailscale.com/envknob"
 	"tailscale.com/health"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netmon"
@@ -31,6 +32,8 @@ import (
 	"tailscale.com/util/mak"
 	"tailscale.com/util/set"
 )
+
+var dialDirect = envknob.RegisterBool("TS_DEBUG_DIAL_DIRECT")
 
 // Client provides a http.Client to connect to tailcontrol over
 // the ts2021 protocol.
@@ -254,7 +257,13 @@ func (nc *Client) dial(ctx context.Context) (*Conn, error) {
 		HealthTracker:   nc.opts.HealthTracker,
 		Clock:           tstime.StdClock{},
 	}
-	clientConn, err := chd.Dial(ctx)
+	var clientConn *controlhttp.ClientConn
+	var err error
+	if dialDirect() {
+		clientConn, err = chd.DialDirect(ctx)
+	} else {
+		clientConn, err = chd.DialWebsocket(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}

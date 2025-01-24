@@ -21,7 +21,7 @@ import (
 //
 // TLS verification is handled by the browser's stack on js/wasm, so there is
 // no way to set InsecureSkipVerify from Go code here.
-func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
+func (d *Dialer) DialWebsocket(ctx context.Context) (*ClientConn, error) {
 	if d.Hostname == "" {
 		return nil, errors.New("required Dialer.Hostname empty")
 	}
