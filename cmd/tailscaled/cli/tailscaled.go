@@ -8,7 +8,7 @@
 //
 // It primarily supports Linux, though other systems will likely be
 // supported in the future.
-package main // import "tailscale.com/cmd/tailscaled"
+package cli // import "tailscale.com/cmd/tailscaled"
 
 import (
 	"context"
@@ -152,7 +152,7 @@ var subCommands = map[string]*func([]string) error{
 
 var beCLI func() // non-nil if CLI is linked in
 
-func main() {
+func Run(osArgs []string) {
 	envknob.PanicIfAnyEnvCheckedInInit()
 	envknob.ApplyDiskConfig()
 	applyIntegrationTestEnvKnob()
@@ -174,19 +174,19 @@ func main() {
 	flag.BoolVar(&args.disableLogs, "no-logs-no-support", false, "disable log uploads; this also disables any technical support")
 	flag.StringVar(&args.confFile, "config", "", "path to config file, or 'vm:user-data' to use the VM's user-data (EC2)")
 
-	if len(os.Args) > 0 && filepath.Base(os.Args[0]) == "tailscale" && beCLI != nil {
+	if len(osArgs) > 0 && filepath.Base(osArgs[0]) == "tailscale" && beCLI != nil {
 		beCLI()
 		return
 	}
 
-	if len(os.Args) > 1 {
-		sub := os.Args[1]
+	if len(osArgs) > 1 {
+		sub := osArgs[1]
 		if fp, ok := subCommands[sub]; ok {
 			if fp == nil {
 				log.SetFlags(0)
 				log.Fatalf("%s not available on %v", sub, runtime.GOOS)
 			}
-			if err := (*fp)(os.Args[2:]); err != nil {
+			if err := (*fp)(osArgs[2:]); err != nil {
 				log.SetFlags(0)
 				log.Fatal(err)
 			}

@@ -3,7 +3,7 @@
 
 //go:build go1.19 && (linux || darwin || freebsd || openbsd) && !ts_omit_bird
 
-package main
+package cli
 
 import (
 	"tailscale.com/chirp"

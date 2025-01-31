@@ -3,7 +3,7 @@
 
 //go:build !windows && go1.19
 
-package main // import "tailscale.com/cmd/tailscaled"
+package cli // import "tailscale.com/cmd/tailscaled"
 
 import "tailscale.com/logpolicy"
 

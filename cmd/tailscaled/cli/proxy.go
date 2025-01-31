@@ -5,7 +5,7 @@
 
 // HTTP proxy code
 
-package main
+package cli
 
 import (
 	"context"
