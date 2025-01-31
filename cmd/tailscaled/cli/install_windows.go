@@ -3,7 +3,7 @@
 
 //go:build go1.19
 
-package main
+package cli
 
 import (
 	"context"

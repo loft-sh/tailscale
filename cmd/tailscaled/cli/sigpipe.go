@@ -3,7 +3,7 @@
 
 //go:build go1.21 && !plan9
 
-package main
+package cli
 
 import "syscall"
 

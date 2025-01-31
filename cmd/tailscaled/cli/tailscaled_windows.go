@@ -3,7 +3,7 @@
 
 //go:build go1.19
 
-package main // import "tailscale.com/cmd/tailscaled"
+package cli // import "tailscale.com/cmd/tailscaled"
 
 // TODO: check if administrator, like tswin does.
 //
