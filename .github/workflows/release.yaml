@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish-binary:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    name: Publish Tailscale binary
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            {
+              echo "release_version=${{ github.event.inputs.release_tag }}"
+              echo "previous_tag=${{ github.event.inputs.previous_tag }}"
+              echo "etcd_version=${{ github.event.inputs.etcd_version }}"
+              echo "kine_version=${{ github.event.inputs.kine_version }}"
+              echo "helm_version=${{ github.event.inputs.helm_version }}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            RELEASE_VERSION=$(echo "$GITHUB_REF" | sed -nE 's!refs/tags/!!p')
+            PREVIOUS_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)")
+            {
+              echo "release_version=$RELEASE_VERSION"
+              echo "previous_tag=$PREVIOUS_TAG"
+            } >> "$GITHUB_OUTPUT"
+          fi
+        
+      - name: Build binaries
+        run: |
+          echo "Building tailscaled binaries"
+          GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-amd64 ./cmd/tailscaled
+          GOARCH=arm64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-arm64 ./cmd/tailscaled
+
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Uploading binaries to github release"
+          gh release upload "${{ steps.get_version.outputs.release_version }}" \
+            tailscaled-linux-amd64 \
+            tailscaled-linux-arm64 \
+            --repo loft-sh/tailscale \
+            --clobber
