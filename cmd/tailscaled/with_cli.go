@@ -3,7 +3,7 @@
 
 //go:build ts_include_cli
 
-package main
+package tailscaled
 
 import (
 	"fmt"

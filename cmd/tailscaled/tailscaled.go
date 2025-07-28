@@ -8,7 +8,7 @@
 //
 // It primarily supports Linux, though other systems will likely be
 // supported in the future.
-package main // import "tailscale.com/cmd/tailscaled"
+package tailscaled // import "tailscale.com/cmd/tailscaled"
 
 import (
 	"context"
@@ -152,7 +152,7 @@ var subCommands = map[string]*func([]string) error{
 
 var beCLI func() // non-nil if CLI is linked in
 
-func main() {
+func Main() {
 	envknob.PanicIfAnyEnvCheckedInInit()
 	envknob.ApplyDiskConfig()
 	applyIntegrationTestEnvKnob()
@@ -170,8 +170,9 @@ func main() {
 	flag.StringVar(&args.statedir, "statedir", "", "path to directory for storage of config state, TLS certs, temporary incoming Taildrop files, etc. If empty, it's derived from --state when possible.")
 	flag.StringVar(&args.socketpath, "socket", paths.DefaultTailscaledSocket(), "path of the service unix socket")
 	flag.StringVar(&args.birdSocketPath, "bird-socket", "", "path of the bird unix socket")
-	flag.BoolVar(&printVersion, "version", false, "print version information and exit")
-	flag.BoolVar(&args.disableLogs, "no-logs-no-support", false, "disable log uploads; this also disables any technical support")
+	// We need to comment that out for vCluster Pro, because we already embedd coredns that adds this flag during an init() function and calling this again would otherwise fatal
+	// flag.BoolVar(&printVersion, "version", false, "print version information and exit")
+	flag.BoolVar(&args.disableLogs, "no-logs-no-support", true, "disable log uploads; this also disables any technical support")
 	flag.StringVar(&args.confFile, "config", "", "path to config file, or 'vm:user-data' to use the VM's user-data (EC2)")
 
 	if len(os.Args) > 0 && filepath.Base(os.Args[0]) == "tailscale" && beCLI != nil {

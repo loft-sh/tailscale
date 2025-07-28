@@ -3,7 +3,7 @@
 
 //go:build (linux || darwin || freebsd || openbsd) && !ts_omit_ssh
 
-package main
+package tailscaled
 
 // Force registration of tailssh with LocalBackend.
 import _ "tailscale.com/ssh/tailssh"

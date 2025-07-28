@@ -3,7 +3,7 @@
 
 //go:build !go1.23
 
-package main
+package tailscaled
 
 func init() {
 	you_need_Go_1_23_to_compile_Tailscale()
