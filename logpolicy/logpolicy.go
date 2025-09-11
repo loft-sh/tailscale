@@ -772,7 +772,7 @@ func dialContext(ctx context.Context, netw, addr string, netMon *netmon.Monitor,
 // The logf parameter is optional; if non-nil, logs are printed using the
 // provided function; if nil, log.Printf will be used instead.
 func NewLogtailTransport(host string, netMon *netmon.Monitor, health *health.Tracker, logf logger.Logf) http.RoundTripper {
-	if testenv.InTest() {
+	if envknob.NoLogsNoSupport() || testenv.InTest() {
 		return noopPretendSuccessTransport{}
 	}
 	if netMon == nil {
