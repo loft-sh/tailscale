@@ -35,6 +35,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"golang.org/x/net/proxy"
 	"tailscale.com/client/tailscale"
 	"tailscale.com/cmd/testwrapper/flakytest"
@@ -824,7 +825,7 @@ func TestUDPConn(t *testing.T) {
 func parseMetrics(m []byte) (map[string]float64, error) {
 	metrics := make(map[string]float64)
 
-	var parser expfmt.TextParser
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	mf, err := parser.TextToMetricFamilies(bytes.NewReader(m))
 	if err != nil {
 		return nil, err
