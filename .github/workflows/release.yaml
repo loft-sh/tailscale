@@ -43,10 +43,20 @@ jobs:
           fi
         
       - name: Build binaries
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
         run: |
-          echo "Building tailscaled binaries"
-          GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-amd64 ./cmd/tailscaled
-          GOARCH=arm64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-arm64 ./cmd/tailscaled
+          set -euo pipefail
+          echo "Building tailscaled binaries for ${RELEASE_VERSION}"
+          # Strip the leading "v" so stamped versions match Tailscale's convention
+          # (e.g. "v1.96.4-loft.15" -> "1.96.4-loft.15").
+          VERSION_SHORT="${RELEASE_VERSION#v}"
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_COMMIT_SHORT="${GIT_COMMIT:0:9}"
+          VERSION_LONG="${VERSION_SHORT}-t${GIT_COMMIT_SHORT}"
+          LDFLAGS="-s -w -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT} -X tailscale.com/version.gitCommitStamp=${GIT_COMMIT}"
+          GOARCH=amd64 GOOS=linux go build -trimpath -ldflags="$LDFLAGS" -o tailscaled-linux-amd64 ./cmd/tailscaled
+          GOARCH=arm64 GOOS=linux go build -trimpath -ldflags="$LDFLAGS" -o tailscaled-linux-arm64 ./cmd/tailscaled
 
       - name: Upload assets to release
         env:
