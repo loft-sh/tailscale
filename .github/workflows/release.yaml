@@ -35,7 +35,9 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           else
             RELEASE_VERSION=$(echo "$GITHUB_REF" | sed -nE 's!refs/tags/!!p')
-            PREVIOUS_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)")
+            # Fork origin may not carry upstream tags; tolerate missing parent
+            # tag so the first loft.N on a new rebase base doesn't fail the workflow.
+            PREVIOUS_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || echo "")
             {
               echo "release_version=$RELEASE_VERSION"
               echo "previous_tag=$PREVIOUS_TAG"
