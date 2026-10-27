@@ -4,7 +4,8 @@ name: Release
 # the job builds and attests tailscaled, uploads it to a draft release, and
 # publishes the release last. Do not create the release in the UI first; a
 # published release fails the run, because its assets must not change after
-# publication.
+# publication. If one was created in the UI, the run fails before uploading:
+# delete that release, keep the tag, and re-run this workflow.
 on:
   push:
     tags:
@@ -64,7 +65,7 @@ jobs:
         run: |
           if draft=$(gh release view "$RELEASE_VERSION" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$draft" != "true" ]]; then
-              echo "::error::Release $RELEASE_VERSION is already published and its assets must not change. Cut a new tag instead."
+              echo "::error::Release $RELEASE_VERSION was published before this run; fork releases start from a tag push only. No assets means it was created in the UI: delete it, keep the tag, and re-run this workflow. With assets it is already released: cut a new tag."
               exit 1
             fi
             echo "Reusing draft release $RELEASE_VERSION"
