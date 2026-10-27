@@ -1,52 +1,53 @@
 name: Release
 
+# The only workflow that publishes a fork release. Push a vX.Y.Z-loft.N tag:
+# the job builds and attests tailscaled, uploads it to a draft release, and
+# publishes the release last. Do not create the release in the UI first; a
+# published release fails the run, because its assets must not change after
+# publication.
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*-loft.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   publish-binary:
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     name: Publish Tailscale binary
     runs-on: ubuntu-22.04
+    env:
+      RELEASE_VERSION: ${{ github.ref_name }}
+      GH_REPO: ${{ github.repository }}
+    permissions:
+      contents: write # Needed to create the draft release and upload the binaries
+      id-token: write # Needed for the attestation signing certificate
+      attestations: write # Needed to store the attestations
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Validate release tag name
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-loft\.[0-9]+$ ]]; then
+            echo "::error::Release tag '$RELEASE_VERSION' does not match the vX.Y.Z-loft.N scheme"
+            exit 1
+          fi
 
-      - run: git fetch --force --tags
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           cache: false
           go-version-file: go.mod
 
-      - id: get_version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            {
-              echo "release_version=${{ github.event.inputs.release_tag }}"
-              echo "previous_tag=${{ github.event.inputs.previous_tag }}"
-              echo "etcd_version=${{ github.event.inputs.etcd_version }}"
-              echo "kine_version=${{ github.event.inputs.kine_version }}"
-              echo "helm_version=${{ github.event.inputs.helm_version }}"
-            } >> "$GITHUB_OUTPUT"
-          else
-            RELEASE_VERSION=$(echo "$GITHUB_REF" | sed -nE 's!refs/tags/!!p')
-            # Fork origin may not carry upstream tags; tolerate missing parent
-            # tag so the first loft.N on a new rebase base doesn't fail the workflow.
-            PREVIOUS_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || echo "")
-            {
-              echo "release_version=$RELEASE_VERSION"
-              echo "previous_tag=$PREVIOUS_TAG"
-            } >> "$GITHUB_OUTPUT"
-          fi
-        
       - name: Build binaries
-        env:
-          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
         run: |
           set -euo pipefail
           echo "Building tailscaled binaries for ${RELEASE_VERSION}"
@@ -65,13 +66,31 @@ jobs:
           grep -q 'CGO_ENABLED=0' tailscaled-linux-amd64.buildinfo
           grep -q 'CGO_ENABLED=0' tailscaled-linux-arm64.buildinfo
 
-      - name: Upload assets to release
+      - name: Attest binaries
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4
+        with:
+          subject-path: tailscaled-linux-*64
+
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Uploading binaries to github release"
-          gh release upload "${{ steps.get_version.outputs.release_version }}" \
-            tailscaled-linux-amd64 \
-            tailscaled-linux-arm64 \
-            --repo loft-sh/tailscale \
-            --clobber
+          if draft=$(gh release view "$RELEASE_VERSION" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$draft" != "true" ]]; then
+              echo "::error::Release $RELEASE_VERSION is already published and its assets must not change. Cut a new tag instead."
+              exit 1
+            fi
+            echo "Reusing draft release $RELEASE_VERSION"
+            exit 0
+          fi
+          gh release create "$RELEASE_VERSION" --draft --verify-tag --title "$RELEASE_VERSION" --notes ""
+
+      - name: Upload binaries to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RELEASE_VERSION" tailscaled-linux-amd64 tailscaled-linux-arm64 --clobber
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$RELEASE_VERSION" --draft=false
