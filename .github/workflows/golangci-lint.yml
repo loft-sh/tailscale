@@ -2,6 +2,9 @@ name: golangci-lint
 on:
   # For now, only lint pull requests, not the main branches.
   pull_request:
+    # Fork release branches use fork-release-validation.yaml.
+    branches-ignore:
+      - 'release-v*-loft.*'
 
   # TODO(andrew): enable for main branch after an initial waiting period.
   #push:
