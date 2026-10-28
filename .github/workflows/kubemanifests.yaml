@@ -1,6 +1,7 @@
 name: "Kubernetes manifests"
 on:
   pull_request:
+   branches-ignore: ['release-v*-loft.*']
    paths: 
    - 'cmd/k8s-operator/**'
    - 'k8s-operator/**'

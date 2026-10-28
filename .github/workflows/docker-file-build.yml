@@ -6,6 +6,8 @@ on:
   pull_request:
     branches:
       - "*"
+      # Fork release branches use fork-release-validation.yaml.
+      - '!release-v*-loft.*'
 jobs:
   deploy:
     runs-on: ubuntu-latest

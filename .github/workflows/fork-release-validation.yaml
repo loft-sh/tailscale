@@ -1,0 +1,57 @@
+name: fork release validation
+
+on:
+  pull_request:
+    branches:
+      - 'release-v*-loft.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-release-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-workflow:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # The shared actionlint workflow scans the complete upstream workflow set.
+      - name: Lint release workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/release.yaml .github/workflows/fork-release-validation.yaml
+      - name: Audit release workflow permissions and inputs
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        with:
+          inputs: .github/workflows/release.yaml .github/workflows/fork-release-validation.yaml
+          version: v1.31.1
+          online-audits: false
+          advanced-security: false
+      - name: Test release validation contract
+        run: go test ./.github/tests
+
+  build-release:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache: false
+          go-version-file: go.mod
+      - name: Build binaries
+        run: |
+          echo "Building tailscaled binaries"
+          GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-amd64 ./cmd/tailscaled
+          GOARCH=arm64 GOOS=linux go build -ldflags="-s -w" -o tailscaled-linux-arm64 ./cmd/tailscaled
