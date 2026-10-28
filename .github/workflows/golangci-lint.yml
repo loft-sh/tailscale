@@ -2,6 +2,7 @@ name: golangci-lint
 on:
   # For now, only lint pull requests, not the main branches.
   pull_request:
+    branches-ignore: ["release-v*-loft.*"]
     paths:
       - ".github/workflows/golangci-lint.yml"
       - "**.go"

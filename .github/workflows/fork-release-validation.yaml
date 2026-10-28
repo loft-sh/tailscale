@@ -1,0 +1,72 @@
+name: fork release validation
+
+# Fork release branches validate the binaries we publish. The inherited upstream
+# test workflows continue to run for their existing target branches.
+on:
+  pull_request:
+    branches: ["release-v*-loft.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-workflow:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache: false
+          go-version-file: go.mod
+      # The shared actionlint workflow scans the full inherited workflow tree.
+      # Validate these release workflows without changing upstream lint policy.
+      - name: Lint release workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/release.yaml .github/workflows/fork-release-validation.yaml
+      - name: Audit release workflow permissions
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        with:
+          inputs: .github/workflows/release.yaml .github/workflows/fork-release-validation.yaml
+          version: v1.31.1
+          online-audits: false
+          advanced-security: false
+      - name: Test release workflow contracts
+        run: go test ./.github/tests
+
+  build-release:
+    runs-on: ubuntu-22.04
+    env:
+      # A validation version only; this job never creates a tag or release.
+      RELEASE_VERSION: v1.96.4-loft.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache: false
+          go-version-file: go.mod
+      # Kept identical to release.yaml by .github/tests/contracts_test.go.
+      - name: Build binaries
+        run: |
+          set -euo pipefail
+          echo "Building tailscaled binaries for ${RELEASE_VERSION}"
+          # Strip the leading "v" so stamped versions match Tailscale's convention
+          # (e.g. "v1.96.4-loft.15" -> "1.96.4-loft.15").
+          VERSION_SHORT="${RELEASE_VERSION#v}"
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_COMMIT_SHORT="${GIT_COMMIT:0:9}"
+          VERSION_LONG="${VERSION_SHORT}-t${GIT_COMMIT_SHORT}"
+          LDFLAGS="-s -w -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT} -X tailscale.com/version.gitCommitStamp=${GIT_COMMIT}"
+          CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -trimpath -ldflags="$LDFLAGS" -o tailscaled-linux-amd64 ./cmd/tailscaled
+          CGO_ENABLED=0 GOARCH=arm64 GOOS=linux go build -trimpath -ldflags="$LDFLAGS" -o tailscaled-linux-arm64 ./cmd/tailscaled
+
+          go version -m tailscaled-linux-amd64 | tee tailscaled-linux-amd64.buildinfo
+          go version -m tailscaled-linux-arm64 | tee tailscaled-linux-arm64.buildinfo
+          grep -q 'CGO_ENABLED=0' tailscaled-linux-amd64.buildinfo
+          grep -q 'CGO_ENABLED=0' tailscaled-linux-arm64.buildinfo

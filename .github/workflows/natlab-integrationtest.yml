@@ -12,7 +12,8 @@ on:
       - "main"
       - "release-branch/*"
   pull_request:
-    # all PRs on all branches
+    branches-ignore: ["release-v*-loft.*"]
+    # All PRs except fork release branches.
   merge_group:
     branches:
       - "main"

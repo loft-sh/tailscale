@@ -10,8 +10,6 @@ import (
 )
 
 func TestDeps(t *testing.T) {
-	// This fork includes the control WebSocket transport on iOS, so wsconn
-	// and coder/websocket are expected despite upstream issue 13762.
 	deptest.DepChecker{
 		GOOS:   "ios",
 		GOARCH: "arm64",
@@ -19,6 +17,8 @@ func TestDeps(t *testing.T) {
 			"testing":                             "do not use testing package in production code",
 			"text/template":                       "linker bloat (MethodByName)",
 			"html/template":                       "linker bloat (MethodByName)",
+			"tailscale.com/net/wsconn":            "https://github.com/tailscale/tailscale/issues/13762",
+			"github.com/coder/websocket":          "https://github.com/tailscale/tailscale/issues/13762",
 			"github.com/mitchellh/go-ps":          "https://github.com/tailscale/tailscale/pull/13759",
 			"database/sql/driver":                 "iOS doesn't use an SQL database",
 			"github.com/google/uuid":              "see tailscale/tailscale#13760",
