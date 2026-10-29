@@ -16,6 +16,7 @@ on:
     paths:
       - "**.go"
   pull_request:
+    branches-ignore: ["release-v*-loft.*"]
     paths:
       - "**.go"
 

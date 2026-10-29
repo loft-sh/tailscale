@@ -10,6 +10,7 @@ on:
       - scripts/installer.sh
       - .github/workflows/installer.yml
   pull_request:
+    branches-ignore: ["release-v*-loft.*"]
     paths:
       - scripts/installer.sh
       - .github/workflows/installer.yml
