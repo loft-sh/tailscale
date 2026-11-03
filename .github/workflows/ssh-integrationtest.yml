@@ -8,6 +8,7 @@ concurrency:
 
 on:
   pull_request:
+    branches-ignore: ['release-v*-loft.*']
     paths:
       - "ssh/**"
       - "tempfork/gliderlabs/ssh/**"

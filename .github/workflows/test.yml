@@ -22,7 +22,9 @@ on:
       - "main"
       - "release-branch/*"
   pull_request:
-    # all PRs on all branches
+    # Fork release branches use fork-release-validation.yaml.
+    branches-ignore:
+      - 'release-v*-loft.*'
   merge_group:
     branches:
       - "main"
