@@ -12,6 +12,7 @@ import (
 	"slices"
 
 	"go4.org/mem"
+	"tailscale.com/envknob"
 	"tailscale.com/net/dnsfallback"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/logger"
@@ -28,6 +29,11 @@ const (
 	DERPMapOther
 	// Tailscale is used for endpoints that are the Tailscale coordination server or admin console.
 	Tailscale
+)
+
+// Debugging and experimentation tweakables.
+var (
+	useTailscaleProviderEndpoints = envknob.RegisterBool("TS_CAPTIVE_DETECTION_USE_TAILSCALE_ENDPOINTS")
 )
 
 func (p EndpointProvider) String() string {
@@ -111,18 +117,21 @@ func availableEndpoints(derpMap *tailcfg.DERPMap, preferredDERPRegionID int, log
 		}
 	}
 
-	// Let's also try the default Tailscale coordination server and admin console.
-	// These are likely to be blocked on some networks.
-	appendTailscaleEndpoint := func(urlString string) {
-		u, err := url.Parse(urlString)
-		if err != nil {
-			logf("captivedetection: failed to parse Tailscale URL %q: %v", urlString, err)
-			return
+	if useTailscaleProviderEndpoints() {
+		// Let's also try the default Tailscale coordination server and admin console.
+		// These are likely to be blocked on some networks.
+		appendTailscaleEndpoint := func(urlString string) {
+			u, err := url.Parse(urlString)
+			if err != nil {
+				logf("captivedetection: failed to parse Tailscale URL %q: %v", urlString, err)
+				return
+			}
+			endpoints = append(endpoints, Endpoint{u, http.StatusNoContent, "", false, Tailscale})
 		}
-		endpoints = append(endpoints, Endpoint{u, http.StatusNoContent, "", false, Tailscale})
+		appendTailscaleEndpoint("http://controlplane.tailscale.com/generate_204")
+		appendTailscaleEndpoint("http://login.tailscale.com/generate_204")
+
 	}
-	appendTailscaleEndpoint("http://controlplane.tailscale.com/generate_204")
-	appendTailscaleEndpoint("http://login.tailscale.com/generate_204")
 
 	// Sort the endpoints by provider so that we can prioritize DERP nodes in the preferred region, followed by
 	// any other DERP server elsewhere, then followed by Tailscale endpoints.

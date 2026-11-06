@@ -18,7 +18,10 @@ import (
 
 // Variant of Dial that tunnels the request over WebSockets, since we cannot do
 // bi-directional communication over an HTTP connection when in JS.
-func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
+//
+// TLS verification is handled by the browser's stack on js/wasm, so there is
+// no way to set InsecureSkipVerify from Go code here.
+func (d *Dialer) DialWebsocket(ctx context.Context) (*ClientConn, error) {
 	if d.Hostname == "" {
 		return nil, errors.New("required Dialer.Hostname empty")
 	}
@@ -32,10 +35,16 @@ func (d *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
 	host := d.Hostname
 	// If using a custom control server (on a non-standard port), prefer that.
 	// This mirrors the port selection in newNoiseClient from noise.go.
-	if d.HTTPPort != "" && d.HTTPPort != "80" && d.HTTPSPort == "443" {
+	if d.HTTPSPort == NoPort {
 		wsScheme = "ws"
 		host = net.JoinHostPort(host, d.HTTPPort)
+	} else if d.HTTPPort != "" && d.HTTPPort != "80" && d.HTTPSPort == "443" {
+		wsScheme = "ws"
+		host = net.JoinHostPort(host, d.HTTPPort)
+	} else if d.HTTPSPort != "" && d.HTTPSPort != "443" {
+		host = net.JoinHostPort(host, d.HTTPSPort)
 	}
+
 	wsURL := &url.URL{
 		Scheme: wsScheme,
 		Host:   host,

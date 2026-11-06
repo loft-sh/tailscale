@@ -888,15 +888,6 @@ func (c *Conn) updateEndpoints(why string) {
 		c.muCond.Broadcast()
 	}()
 	c.dlogf("[v1] magicsock: starting endpoint update (%s)", why)
-	if c.noV4Send.Load() && runtime.GOOS != "js" && !c.onlyTCP443.Load() && !hostinfo.IsInVM86() {
-		c.mu.Lock()
-		closed := c.closed
-		c.mu.Unlock()
-		if !closed {
-			c.logf("magicsock: last netcheck reported send error. Rebinding.")
-			c.Rebind()
-		}
-	}
 
 	endpoints, err := c.determineEndpoints(c.connCtx)
 	if err != nil {

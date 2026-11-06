@@ -1,8 +1,6 @@
 // Copyright (c) Tailscale Inc & contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !js
-
 // Package controlhttp implements the Tailscale 2021 control protocol
 // base transport over HTTP.
 //
@@ -64,7 +62,7 @@ var stdDialer net.Dialer
 //
 // The provided ctx is only used for the initial connection, until
 // Dial returns. It does not affect the connection once established.
-func (a *Dialer) Dial(ctx context.Context) (*ClientConn, error) {
+func (a *Dialer) DialDirect(ctx context.Context) (*ClientConn, error) {
 	if a.Hostname == "" {
 		return nil, errors.New("required Dialer.Hostname empty")
 	}
@@ -393,8 +391,6 @@ var macOSScreenTime = health.Register(&health.Warnable{
 	},
 	ImpactsConnectivity: true,
 })
-
-var HookMakeACEDialer feature.Hook[func(dialer netx.DialFunc, aceHost string, optIP netip.Addr) netx.DialFunc]
 
 // tryURLUpgrade connects to u, and tries to upgrade it to a net.Conn.
 //
